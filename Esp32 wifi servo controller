@@ -1,0 +1,108 @@
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <ESP32Servo.h>
+
+// Replace with your network credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
+AsyncWebServer server(80);
+Servo myservo;
+
+const int servoPin = 18; // Define the pin the servo is connected to
+
+const char* htmlContent = R"(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Servo Control</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32 Servo Control</h1>
+    <label for="angle">Servo Angle:</label>
+    <input type="range" id="angle" name="angle" min="0" max="180" value="90" step="1">
+  </div>
+
+  <script>
+    var slider = document.getElementById("angle");
+
+    slider.oninput = function() {
+      var angle = this.value;
+      fetch('/setAngle?angle=' + angle);
+    };
+  </script>
+</body>
+</html>
+)";
+
+void setup() {
+  // Initialize Serial Monitor
+  Serial.begin(115200);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Print ESP32 Local IP Address
+  Serial.println(WiFi.localIP());
+
+  // Attach the servo to the pin
+  myservo.attach(servoPin);
+
+  // Handle web server requests
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", htmlContent);
+  });
+
+  server.on("/setAngle", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (request->hasParam("angle")) {
+      int angle = request->getParam("angle")->value().toInt();
+      myservo.write(angle); // Move servo to specified angle
+      request->send(200, "text/plain", "Servo Angle Set");
+    } else {
+      request->send(400, "text/plain", "Missing angle parameter");
+    }
+  });
+
+  // Start server
+  server.begin();
+}
+
+void loop() {
+  // Nothing to do here
+}
